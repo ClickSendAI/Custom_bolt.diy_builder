@@ -11,7 +11,6 @@ import { join } from 'path';
 
 dotenv.config();
 
-// Get detailed git info with fallbacks
 const getGitInfo = () => {
   try {
     return {
@@ -25,27 +24,17 @@ const getGitInfo = () => {
         .toString()
         .trim()
         .replace(/^.*github.com[:/]/, '')
-        .replace(/\.git$/, ''),
+        .replace(/.git$/, ''),
     };
   } catch {
-    return {
-      commitHash: 'no-git-info',
-      branch: 'unknown',
-      commitTime: 'unknown',
-      author: 'unknown',
-      email: 'unknown',
-      remoteUrl: 'unknown',
-      repoName: 'unknown',
-    };
+    return { commitHash: 'no-git-info', branch: 'unknown', commitTime: 'unknown', author: 'unknown', email: 'unknown', remoteUrl: 'unknown', repoName: 'unknown' };
   }
 };
 
-// Read package.json with detailed dependency info
 const getPackageJson = () => {
   try {
     const pkgPath = join(process.cwd(), 'package.json');
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-
     return {
       name: pkg.name,
       description: pkg.description,
@@ -56,15 +45,7 @@ const getPackageJson = () => {
       optionalDependencies: pkg.optionalDependencies || {},
     };
   } catch {
-    return {
-      name: 'bolt.diy',
-      description: 'A DIY LLM interface',
-      license: 'MIT',
-      dependencies: {},
-      devDependencies: {},
-      peerDependencies: {},
-      optionalDependencies: {},
-    };
+    return { name: 'bolt.diy', description: 'A DIY LLM interface', license: 'MIT', dependencies: {}, devDependencies: {}, peerDependencies: {}, optionalDependencies: {} };
   }
 };
 
@@ -94,15 +75,20 @@ export default defineConfig((config) => {
     build: {
       target: 'esnext',
       sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              return 'vendor';
+            }
+          },
+        },
+      },
     },
     plugins: [
       nodePolyfills({
         include: ['buffer', 'process', 'util', 'stream', 'path'],
-        globals: {
-          Buffer: true,
-          process: true,
-          global: true,
-        },
+        globals: { Buffer: true, process: true, global: true },
         protocolImports: true,
         exclude: ['child_process', 'fs'],
       }),
@@ -115,7 +101,6 @@ export default defineConfig((config) => {
               map: null,
             };
           }
-
           return null;
         },
       },
@@ -156,20 +141,16 @@ function chrome129IssuePlugin() {
     configureServer(server: ViteDevServer) {
       server.middlewares.use((req, res, next) => {
         const raw = req.headers['user-agent']?.match(/Chrom(e|ium)\/([0-9]+)\./);
-
         if (raw) {
           const version = parseInt(raw[2], 10);
-
           if (version === 129) {
             res.setHeader('content-type', 'text/html');
             res.end(
               '<body><h1>Please use Chrome Canary for testing.</h1><p>Chrome 129 has an issue with JavaScript modules & Vite local development, see <a href="https://github.com/stackblitz/bolt.new/issues/86#issuecomment-2395519258">for more information.</a></p><p><b>Note:</b> This only impacts <u>local development</u>. `pnpm run build` and `pnpm run start` will work fine in this browser.</p></body>',
             );
-
             return;
           }
         }
-
         next();
       });
     },
